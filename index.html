@@ -1,0 +1,574 @@
+<title>Bass &amp; Guitar Tab Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: sticky transport bar on top, tab systems below as wrapping rows of measures; playhead sweeps the active measure. */
+:root{
+  --bg:#f3f4f6; --surface:#ffffff; --ink:#1b1f27; --muted:#5d6675; --line:#d5d9e0;
+  --accent:#c2601d; --accent-soft:#f6e3d4; --play:#1f7a4d; --head:#d33b2c;
+  --display:"Archivo",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12151b; --surface:#1b1f27; --ink:#e7e9ee; --muted:#9aa3b2; --line:#2e3440;
+  --accent:#e88a48; --accent-soft:#3a2617; --play:#3fbf80; --head:#ff5a48; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12151b; --surface:#1b1f27; --ink:#e7e9ee; --muted:#9aa3b2; --line:#2e3440;
+  --accent:#e88a48; --accent-soft:#3a2617; --play:#3fbf80; --head:#ff5a48; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--display);padding:0 16px 48px;}
+.wrap{max-width:1100px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px;padding-block:20px 8px}
+h1{font-size:1.6rem;font-weight:800;margin:0;letter-spacing:-.01em;text-wrap:balance}
+header p{margin:0;color:var(--muted);font-size:.9rem}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center;margin-block:8px 16px;box-shadow:0 4px 18px rgba(0,0,0,.06)}
+button{font:600 .9rem var(--display);border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:8px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#play{background:var(--play);color:#fff;border-color:transparent;min-width:92px;font-size:1rem}
+#play.on{background:var(--head)}
+.grp{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+input[type=number]{width:64px;font:600 1rem var(--mono);padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+select{font:600 .9rem var(--display);padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+input[type=range]{width:110px;accent-color:var(--accent)}
+.val{font:600 .9rem var(--mono);min-width:44px;font-variant-numeric:tabular-nums}
+.chk{display:flex;align-items:center;gap:6px;font-size:.85rem;color:var(--ink);text-transform:none;letter-spacing:0;font-weight:500}
+.beats{display:flex;gap:6px;margin-left:auto}
+.dot{width:14px;height:14px;border-radius:50%;background:var(--line);transition:background .05s}
+.dot.on{background:var(--accent)}
+.dot.on.one{background:var(--head)}
+#status{font:600 .85rem var(--mono);color:var(--muted);min-width:120px}
+.system{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px 14px;margin-bottom:14px}
+.sys-label{font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:6px}
+.rows{display:flex;flex-wrap:wrap;align-items:flex-start;row-gap:10px}
+.names,.m pre{font:400 15px/1.45 var(--mono);margin:0;white-space:pre}
+.names{color:var(--muted);padding:18px 4px 0 0}
+.m{position:relative;cursor:pointer;border-right:2px solid var(--muted);padding:0 2px;border-radius:2px}
+.m .num{display:block;font:600 11px var(--mono);color:var(--muted);height:18px;padding-left:2px}
+.m:hover{background:var(--accent-soft)}
+.m.cur{background:var(--accent-soft)}
+.m.inloop .num{color:var(--accent)}
+.m .ph{position:absolute;top:16px;bottom:-2px;width:2px;background:var(--head);left:0;display:none;box-shadow:0 0 6px var(--head)}
+.m.cur .ph{display:block}
+details{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:16px}
+summary{cursor:pointer;font-weight:700}
+textarea{width:100%;min-height:220px;font:13px/1.4 var(--mono);background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:10px}
+.hint{color:var(--muted);font-size:.85rem;line-height:1.5;max-width:70ch}
+.hint a{color:var(--accent)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.note{font-size:.85rem;color:var(--muted);margin:0 0 12px}
+@media (prefers-reduced-motion: reduce){.dot{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Bass &amp; Guitar Tab Trainer</h1>
+    <p>Paste a tab, set the tempo, play along with the click and the moving line.</p>
+  </header>
+
+  <div class="bar" role="toolbar" aria-label="Transport">
+    <button id="play" title="Space">▶ Play</button>
+    <div class="grp">
+      <label for="bpm">BPM</label>
+      <input id="bpm" type="number" min="30" max="300" value="80">
+      <button id="tap" title="Tap along with the recording">Tap</button>
+    </div>
+    <div class="grp">
+      <label for="speed">Speed</label>
+      <input id="speed" type="range" min="40" max="120" step="5" value="100">
+      <span class="val" id="speedVal">100%</span>
+    </div>
+    <div class="grp">
+      <label for="beatsPer">Beats/bar</label>
+      <input id="beatsPer" type="number" min="1" max="12" value="4">
+    </div>
+    <div class="grp">
+      <label for="grid">Snap notes</label>
+      <select id="grid" title="Snap notes to the nearest beat subdivision">
+        <option value="0">Off</option>
+        <option value="2">8th</option>
+        <option value="4" selected>16th</option>
+        <option value="3">8th triplet</option>
+      </select>
+    </div>
+    <div class="grp">
+      <label for="sync">Sync ms</label>
+      <input id="sync" type="number" min="-500" max="500" step="10" value="0" title="Shift the moving line if it runs ahead of (+) or behind (−) what you hear">
+    </div>
+    <div class="grp">
+      <label class="chk"><input id="countIn" type="checkbox" checked> Count-in</label>
+      <label class="chk"><input id="loop" type="checkbox"> Loop</label>
+      <input id="loopA" type="number" min="1" value="1" aria-label="Loop start measure">
+      <span>–</span>
+      <input id="loopB" type="number" min="1" value="4" aria-label="Loop end measure">
+    </div>
+    <div class="grp">
+      <label for="clickVol">Click</label>
+      <input id="clickVol" type="range" min="0" max="100" value="70">
+      <label for="noteVol">Notes</label>
+      <input id="noteVol" type="range" min="0" max="100" value="45">
+    </div>
+    <div class="grp">
+      <label for="inst">Instrument</label>
+      <select id="inst" title="Auto treats 6+ string tabs as guitar and 4–5 string tabs as bass">
+        <option value="auto" selected>Auto</option>
+        <option value="bass">Bass</option>
+        <option value="guitar">Guitar</option>
+      </select>
+    </div>
+    <div class="grp">
+      <label for="gtrTone">Guitar tone</label>
+      <select id="gtrTone">
+        <option value="clean" selected>Clean</option>
+        <option value="drive">Overdrive</option>
+        <option value="nylon">Nylon / soft</option>
+      </select>
+    </div>
+    <div class="grp">
+      <label for="tone">Bass tone</label>
+      <select id="tone">
+        <option value="finger" selected>Fingerstyle</option>
+        <option value="pick">Pick</option>
+        <option value="synth">Synth bass</option>
+        <option value="sine">Clean (pitch only)</option>
+      </select>
+      <label class="chk" title="Laptop and phone speakers can't reproduce low bass notes. This raises playback one octave so you can hear them."><input id="octUp" type="checkbox"> Bass octave up</label>
+    </div>
+    <span id="status">Ready</span>
+    <div class="beats" id="beats"></div>
+  </div>
+
+  <details id="editor">
+    <summary>Add your tab (paste or upload)</summary>
+    <p class="hint">Paste or upload a plain-text bass or guitar tab (lines like <code>G|--5--7--|</code> or <code>e|--0--3--|</code>). Tabs with 6 or more strings play as guitar, and 4–5 strings as bass. Change Instrument to override. Each <code>|</code> is a bar line, and the line moves through each measure in one bar's time. Licensed sources for “Another Day” tabs:
+      <a href="https://www.songsterr.com/?pattern=dream%20theater%20another%20day" target="_blank" rel="noopener">Songsterr</a> ·
+      <a href="https://www.ultimate-guitar.com/search.php?search_type=title&value=dream%20theater%20another%20day" target="_blank" rel="noopener">Ultimate Guitar</a>.
+      Use Tap on the recording to find its tempo. Lines like <code>[Verse]</code> become section labels.</p>
+    <textarea id="src" spellcheck="false"></textarea>
+    <div class="row">
+      <button id="apply">Load tab</button>
+      <button id="uploadBtn">Upload .txt file</button>
+      <input id="file" type="file" accept=".txt,.tab,.crd,.text,text/plain" hidden>
+      <button id="reset">Restore example</button>
+      <span class="hint" id="fileMsg"></span>
+    </div>
+  </details>
+
+  <p class="note" id="tabNote">Showing original example riffs for bass and guitar. Paste or upload your own tab above to replace them.</p>
+  <div id="tab"></div>
+</div>
+
+<script>
+const EXAMPLE = `[Example groove, original practice riff]
+G|----------------|----------------|----------------|----------------|
+D|------------2---|--------2---5---|------------0---|--------4-------|
+A|--------2-------|3---3-----------|--------2-------|5-----5-----5-4-|
+E|0---0-----------|----------------|3---3-----------|----------------|
+
+[Example walk-up]
+G|--------2-------|--------0-------|------------2---|----------------|
+D|----2-------2---|----2-------2---|----1---4-------|----------------|
+A|0---------------|3---------------|2---------------|----------------|
+E|----------------|----------------|----------------|0---------------|
+
+[Example guitar arpeggio, original]
+e|----------------|----------------|
+B|------4-----4---|--------0-----0-|
+G|----4---4-----4-|------1---1-----|
+D|--4-------4-----|----2-------2---|
+A|2---------------|--2-------------|
+E|----------------|0---------------|`;
+
+const $ = id => document.getElementById(id);
+const store = {get(k){try{return localStorage.getItem(k)}catch(e){return null}}, set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+
+let measures = []; // {el, ph, notes:[{pos,midi}]}
+
+function parse(text){
+  const systems=[]; let cur=null, label=null;
+  const isTab = l => /^\s*[A-Ga-g][#b]?\s*\|/.test(l) && /-/.test(l);
+  for(const raw of text.replace(/\t/g,'    ').split('\n')){
+    const l = raw.trimEnd();
+    if(isTab(l)){
+      if(!cur){cur={label,lines:[]};systems.push(cur);label=null}
+      const m = l.match(/^\s*([A-Ga-g][#b]?)\s*\|(.*)$/);
+      let body = m[2]; const last = body.lastIndexOf('|');
+      if(last>=0) body = body.slice(0,last);
+      cur.lines.push({name:m[1], bars: body.split('|').filter((b,i,a)=>!(b==='' && i===a.length-1))});
+    } else {
+      cur=null;
+      const t=l.trim();
+      if(t) label = t.replace(/^\[|\]$/g,'');
+    }
+  }
+  return systems.filter(s=>s.lines.length>=2).map(s=>{
+    tuneSystem(s);
+    const n = Math.min(...s.lines.map(x=>x.bars.length));
+    const bars=[];
+    for(let i=0;i<n;i++){
+      const len = Math.max(...s.lines.map(x=>x.bars[i].length),1);
+      const rows = s.lines.map(x=>x.bars[i].padEnd(len,'-'));
+      const notes=[];
+      s.lines.forEach((x,si)=>{
+        const base = s.tuning[si];
+        const re=/\d+/g; let mm;
+        while((mm=re.exec(rows[si]))){ notes.push({col:mm.index, midi:base+parseInt(mm[0],10), s:si, inst:s.inst}); }
+      });
+      notes.sort((a,b)=>a.col-b.col);
+      bars.push({rows,notes,len});
+    }
+    return {label:s.label, names:s.lines.map(x=>x.name), inst:s.inst, bars};
+  });
+}
+
+/* Bar timing. Text tabs pad bars with a varying number of dashes ("|--5---7---|"), so
+   character position alone puts notes slightly off the beat. For each bar, try a few
+   lead-padding (o) and bar-width (W) values and keep the one that lands the notes closest
+   to the beat grid. A note at column c then sounds at (c - o) / W of the bar. */
+function fitBar(m){
+  const S=beatsPer()*(+$('grid').value||4);
+  if(m.fit[S]) return m.fit[S];
+  const cols=[...new Set(m.notes.map(n=>n.col))], len=m.len;
+  let best={o:0, W:len, score:Infinity};
+  if(cols.length){
+    const cmin=Math.min(...cols), cmax=Math.max(...cols), S8=S/2;
+    for(let o=0;o<=Math.min(cmin,3);o++){
+      for(let W=Math.max(1,len-o-4); W<=len-o+2; W++){
+        if(cmax-o>=W) continue;
+        let err=0, off8=0, off4=0;
+        for(const c of cols){
+          const x=(c-o)/W*S, y=(c-o)/W*S8, z=(c-o)/W*S8/2;
+          err+=Math.abs(x-Math.round(x)); off8+=Math.abs(y-Math.round(y)); off4+=Math.abs(z-Math.round(z));
+        }
+        // Prefer an exact grid fit, then notes on beats and 8ths, then a width close to the bar's length.
+        const score=err + .03*off8 + .015*off4 + .03*Math.abs(len-o-W);
+        if(score<best.score) best={o,W,score};
+      }
+    }
+  }
+  return m.fit[S]=best;
+}
+function notePos(m,n){ const f=fitBar(m); return Math.min(.999,Math.max(0,(n.col-f.o)/f.W)); }
+
+/* Open-string pitches. Standard tuning by position (low to high), then each string
+   is moved to the nearest pitch matching its written name, so drop D or Eb tunings work. */
+const PC={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+const BASS_STD=[23,28,33,38,43,48], GTR_STD=[30,35,40,45,50,55,59,64];
+function tuneSystem(s){
+  const n=s.lines.length, pick=$('inst').value;
+  s.inst = pick==='auto' ? (n>=6?'guitar':'bass') : pick;
+  let std;
+  if(s.inst==='guitar') std = GTR_STD.slice(Math.max(0,8-n));
+  else std = n>=5 ? BASS_STD.slice(0,n) : BASS_STD.slice(1,1+n);
+  while(std.length<n) std.push(std[std.length-1]+5);
+  s.tuning = s.lines.map((x,i)=>{
+    const ref=std[n-1-i], nm=x.name;
+    const pc=(PC[nm[0].toUpperCase()] + (nm[1]==='#'?1:nm[1]==='b'?-1:0) + 12)%12;
+    let d=(pc-ref%12+12)%12; if(d>6) d-=12;
+    return ref+d;
+  });
+}
+
+let current="";
+function render(text){
+  current=text;
+  const systems = parse(text);
+  const host=$('tab'); host.innerHTML=''; measures=[];
+  if(!systems.length){host.innerHTML='<p class="hint">No tab lines found. Each line should start with a string name and a bar, like <code>G|--5--|</code>.</p>';return}
+  systems.forEach(sys=>{
+    const box=document.createElement('section'); box.className='system';
+    if(sys.label){const h=document.createElement('div');h.className='sys-label';h.textContent=sys.label;box.appendChild(h)}
+    const rows=document.createElement('div'); rows.className='rows';
+    const names=document.createElement('pre'); names.className='names'; names.textContent=sys.names.join('\n'); rows.appendChild(names);
+    sys.bars.forEach(b=>{
+      const idx=measures.length;
+      const m=document.createElement('div'); m.className='m'; m.tabIndex=0;
+      m.innerHTML=`<span class="num">${idx+1}</span><pre></pre><div class="ph"></div>`;
+      m.querySelector('pre').textContent=b.rows.join('\n');
+      m.addEventListener('click',()=>jumpTo(idx));
+      m.addEventListener('keydown',e=>{if(e.key==='Enter')jumpTo(idx)});
+      rows.appendChild(m);
+      measures.push({el:m, ph:m.querySelector('.ph'), pre:m.querySelector('pre'), notes:b.notes, len:b.len, fit:{}});
+    });
+    box.appendChild(rows); host.appendChild(box);
+  });
+  $('loopB').value=Math.min(+$('loopB').value||4, measures.length);
+  markLoop(); setCur(0,0);
+}
+
+/* ---------- audio ---------- */
+let master=null;
+// One shared audio context; everything goes through a limiter so stacked notes don't distort.
+async function ensureCtx(){
+  if(!ctx){
+    ctx=new (window.AudioContext||window.webkitAudioContext)();
+    master=ctx.createDynamicsCompressor();
+    master.threshold.value=-12; master.knee.value=10; master.ratio.value=6; master.attack.value=.003; master.release.value=.2;
+    master.connect(ctx.destination);
+  }
+  await ctx.resume();
+}
+let ctx=null, playing=false, t0=0, startIdx=0, nextBeat=0, beatN=0, timer=null, raf=null, scheduledBars=new Set(), curIdx=0;
+const effBpm=()=>Math.max(20,(+$('bpm').value||80)*(+$('speed').value)/100);
+const beatsPer=()=>Math.max(1,+$('beatsPer').value||4);
+const beatDur=()=>60/effBpm();
+const barDur=()=>beatDur()*beatsPer();
+const countBeats=()=>$('countIn').checked?beatsPer():0;
+
+function loopRange(){let a=Math.max(1,+$('loopA').value)-1,b=Math.min(measures.length,+$('loopB').value)-1;if(b<a)[a,b]=[b,a];return[a,b]}
+function measureAt(k){ // k = bar number since start (0-based)
+  if($('loop').checked){const[a,b]=loopRange();const s=(startIdx>=a&&startIdx<=b)?startIdx:a;const off=(s-a+k)%(b-a+1);return a+off}
+  const i=startIdx+k; return i<measures.length?i:-1;
+}
+
+function click(time,accent){
+  const v=+$('clickVol').value/100; if(!v)return;
+  const o=ctx.createOscillator(), g=ctx.createGain();
+  o.frequency.value=accent?1500:1000;
+  g.gain.setValueAtTime(v*(accent?1:.6),time); g.gain.exponentialRampToValueAtTime(.0001,time+.05);
+  o.connect(g).connect(master); o.start(time); o.stop(time+.06);
+}
+/* Bass tones "finger" and "pick" are built from a string's harmonics: pluck position sets
+   which harmonics sound, and higher harmonics die away faster, like a real bass string.
+   Guitar tones are Karplus-Strong plucked strings (a noise burst in a damped delay line).
+   Both are rendered once per pitch and cached. */
+const TONES={
+  finger:{add:true, pp:.22, tilt:1.5, tau:1.6, damp:.5, maxHz:3500, thump:.04, cutoff:2500, gain:1},
+  pick:  {add:true, pp:.09, tilt:1.05, tau:1.3, damp:.32, maxHz:6000, thump:.12, cutoff:5000, gain:.8},
+  synth: {ks:false},
+  sine:  {ks:false},
+  clean: {ks:true, bright:.6,  decay:.996, cutoff:5500, gain:.55},
+  drive: {ks:true, bright:.7,  decay:.998, cutoff:3200, gain:.5, drive:true},
+  nylon: {ks:true, bright:.3,  decay:.994, cutoff:2600, gain:.6}
+};
+let driveCurve=null;
+function getDriveCurve(){
+  if(driveCurve) return driveCurve;
+  driveCurve=new Float32Array(1024);
+  for(let i=0;i<1024;i++){const x=i/511.5-1; driveCurve[i]=Math.tanh(6*x)}
+  return driveCurve;
+}
+const ksCache=new Map();
+function bassBuffer(midi,t){
+  const key=t+midi; if(ksCache.has(key))return ksCache.get(key);
+  const p=TONES[t], sr=ctx.sampleRate, f=440*Math.pow(2,(midi-69)/12);
+  const len=Math.floor(sr*1.6), buf=ctx.createBuffer(1,len,sr), d=buf.getChannelData(0);
+  for(let k=1;k<=40;k++){
+    const fk=k*f*Math.sqrt(1+.0002*k*k); // slight stiffness: upper harmonics run a little sharp
+    if(fk>Math.min(p.maxHz,sr*.45)) break;
+    const a=Math.abs(Math.sin(Math.PI*k*p.pp))/Math.pow(k,p.tilt);
+    const dec=Math.exp(-1/(p.tau/(1+p.damp*(k-1))*sr));
+    const w=2*Math.PI*fk/sr, c=Math.cos(w), sn=Math.sin(w);
+    let x=0, y=1, amp=a;
+    for(let i=0;i<len && amp>1e-5;i++){ d[i]+=amp*x; const nx=x*c+y*sn; y=y*c-x*sn; x=nx; amp*=dec; }
+  }
+  // Short finger/pick noise at the attack.
+  const tn=Math.floor(sr*.006); let lp=0;
+  for(let i=0;i<tn;i++){ lp+=.3*((Math.random()*2-1)-lp); d[i]+=p.thump*lp*(1-i/tn); }
+  let peak=1e-6; for(let i=0;i<len;i++) if(Math.abs(d[i])>peak) peak=Math.abs(d[i]);
+  for(let i=0;i<len;i++) d[i]/=peak;
+  ksCache.set(key,buf); return buf;
+}
+function ksBuffer(midi,t){
+  const key=t+midi; if(ksCache.has(key))return ksCache.get(key);
+  const p=TONES[t], sr=ctx.sampleRate, f=440*Math.pow(2,(midi-69)/12);
+  const len=Math.floor(sr*1.6), buf=ctx.createBuffer(1,len,sr), d=buf.getChannelData(0);
+  const N=Math.max(2,Math.round(sr/f)), ring=new Float32Array(N);
+  let prev=0, mean=0;
+  for(let i=0;i<N;i++){prev+=p.bright*((Math.random()*2-1)-prev);ring[i]=prev;mean+=prev}
+  mean/=N; for(let i=0;i<N;i++)ring[i]-=mean;
+  let idx=0, peak=1e-6;
+  for(let i=0;i<len;i++){
+    const cur=ring[idx], nxt=ring[(idx+1)%N];
+    d[i]=cur; ring[idx]=p.decay*.5*(cur+nxt); idx=(idx+1)%N;
+    if(Math.abs(cur)>peak)peak=Math.abs(cur);
+  }
+  for(let i=0;i<len;i++)d[i]/=peak;
+  ksCache.set(key,buf); return buf;
+}
+
+function pluck(time,midi,dur,inst){
+  let v=+$('noteVol').value/100; if(!v)return;
+  const gtr=inst==='guitar';
+  if(!gtr && $('octUp').checked) midi+=12;
+  const t=gtr?$('gtrTone').value:$('tone').value, p=TONES[t], f=440*Math.pow(2,(midi-69)/12);
+  if(gtr) v*=.6; // several strings ring at once on guitar
+  const end=time+Math.max(.06,Math.min(1.4,dur));
+  const g=ctx.createGain(), lp=ctx.createBiquadFilter(); lp.type='lowpass';
+  g.gain.setValueAtTime(.0001,time); g.gain.exponentialRampToValueAtTime(v*.9,time+.004);
+  g.gain.setValueAtTime(v*.9,Math.max(time+.01,end-.03)); g.gain.exponentialRampToValueAtTime(.0001,end);
+  lp.connect(g).connect(master);
+  const srcs=[];
+  if(p.ks||p.add){
+    const s=ctx.createBufferSource(); s.buffer=p.add?bassBuffer(midi,t):ksBuffer(midi,t);
+    lp.frequency.value=p.cutoff; const pg=ctx.createGain(); pg.gain.value=p.gain;
+    if(p.drive){
+      const ws=ctx.createWaveShaper(), og=ctx.createGain(); ws.curve=getDriveCurve(); og.gain.value=.45;
+      s.connect(pg).connect(ws).connect(og).connect(lp);
+    } else s.connect(pg).connect(lp);
+    srcs.push(s);
+  } else if(t==='synth'){
+    const a=ctx.createOscillator(), b=ctx.createOscillator(), bg=ctx.createGain();
+    a.type='sawtooth'; a.frequency.value=f; b.type='square'; b.frequency.value=f; b.detune.value=7; bg.gain.value=.25;
+    lp.Q.value=3; lp.frequency.setValueAtTime(Math.min(2500,f*16),time); lp.frequency.exponentialRampToValueAtTime(Math.max(120,f*2),time+.25);
+    const ag=ctx.createGain(); ag.gain.value=.45;
+    a.connect(ag).connect(lp); b.connect(bg).connect(lp); srcs.push(a,b);
+  } else {
+    const a=ctx.createOscillator(), b=ctx.createOscillator(), bg=ctx.createGain();
+    a.type='sine'; a.frequency.value=f; b.type='sine'; b.frequency.value=f*2; bg.gain.value=.2;
+    lp.frequency.value=3000; a.connect(lp); b.connect(bg).connect(lp); srcs.push(a,b);
+  }
+  srcs.forEach(s=>{s.start(time); s.stop(end+.02)});
+}
+
+function scheduler(){
+  const ahead=ctx.currentTime+.12;
+  while(nextBeat<ahead){
+    const bp=beatsPer(), cb=countBeats();
+    const rel=beatN-cb; // beats since bar 0
+    if(rel<0){ click(nextBeat, beatN%bp===0); }
+    else{
+      const k=Math.floor(rel/bp), beatInBar=rel%bp, idx=measureAt(k);
+      if(idx<0){ break; }
+      click(nextBeat, beatInBar===0);
+      if(beatInBar===0 && !scheduledBars.has(k)){
+        scheduledBars.add(k);
+        const bd=barDur(), steps=beatsPer()*(+$('grid').value);
+        const snap=p=>steps?Math.min(steps-1,Math.round(p*steps))/steps:p;
+        const ns=measures[idx].notes.map(n=>({...n,pos:snap(notePos(measures[idx],n))}));
+        // Bass notes stop when the next note starts (tight rhythm); guitar notes ring until that string plays again.
+        ns.forEach(n=>{
+          const gtr=n.inst==='guitar';
+          const next=ns.find(x=>x.pos>n.pos && (!gtr || x.s===n.s));
+          pluck(nextBeat+n.pos*bd, n.midi, ((next?next.pos:(gtr?1.5:1))-n.pos)*bd, n.inst);
+        });
+      }
+    }
+    nextBeat+=beatDur(); beatN++;
+  }
+}
+
+function frame(){
+  if(!playing)return;
+  // Offset the line by the device's audio output delay (large on Bluetooth) plus the manual Sync value.
+  const lat=(ctx.outputLatency||ctx.baseLatency||0)+(+$('sync').value||0)/1000;
+  const now=ctx.currentTime-lat, bd=barDur(), el=now-t0;
+  const bp=beatsPer();
+  if(el<0){
+    const beatsLeft=Math.ceil(-el/beatDur());
+    const b=(countBeats()-beatsLeft); showBeat(b>=0?b:0);
+    $('status').textContent=`Count-in ${beatsLeft}`;
+    setCur(startIdx,0);
+  } else {
+    const k=Math.floor(el/bd), frac=(el-k*bd)/bd, idx=measureAt(k);
+    if(idx<0){stop(); setCur(measures.length-1,1); $('status').textContent='End'; return}
+    setCur(idx,frac);
+    showBeat(Math.floor(frac*bp));
+    $('status').textContent=`Bar ${idx+1}/${measures.length} · ${Math.round(effBpm())} bpm`;
+  }
+  raf=requestAnimationFrame(frame);
+}
+
+function setCur(idx,frac){
+  if(!measures.length)return;
+  if(idx!==curIdx){
+    measures[curIdx]?.el.classList.remove('cur');
+    curIdx=idx;
+    const el=measures[idx].el;
+    if(playing){
+      const r=el.getBoundingClientRect(), top=$('tab').closest('.wrap').querySelector('.bar').getBoundingClientRect().bottom;
+      if(r.top<top+10||r.bottom>innerHeight-20) window.scrollBy({top:r.top-top-60,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+    }
+  }
+  const m=measures[idx]; m.el.classList.add('cur');
+  // Same column mapping as the audio, so the line crosses each note's character as it sounds.
+  const f=fitBar(m), col=Math.min(m.len, f.o+frac*f.W+.5);
+  m.ph.style.left=(m.pre.offsetLeft+col/m.len*m.pre.offsetWidth)+'px';
+}
+
+function showBeat(b){
+  const dots=$('beats').children;
+  for(let i=0;i<dots.length;i++) dots[i].classList.toggle('on',i===b);
+}
+function buildDots(){
+  const n=beatsPer(); $('beats').innerHTML='';
+  for(let i=0;i<n;i++){const d=document.createElement('div');d.className='dot'+(i===0?' one':'');$('beats').appendChild(d)}
+}
+
+async function start(from){
+  if(!measures.length)return;
+  await ensureCtx();
+  startIdx=from??curIdx; playing=true; scheduledBars.clear();
+  beatN=0; nextBeat=ctx.currentTime+.08; t0=nextBeat+countBeats()*beatDur();
+  timer=setInterval(scheduler,25); scheduler();
+  $('play').textContent='■ Stop'; $('play').classList.add('on');
+  try{wake=await navigator.wakeLock?.request('screen')}catch(e){}
+  raf=requestAnimationFrame(frame);
+}
+let wake=null;
+function stop(){
+  playing=false; clearInterval(timer); cancelAnimationFrame(raf);
+  $('play').textContent='▶ Play'; $('play').classList.remove('on'); showBeat(-1);
+  $('status').textContent='Stopped'; try{wake?.release()}catch(e){} wake=null;
+  if(ctx){ctx.suspend().then(()=>ctx.resume())} // cut any queued sounds
+}
+function restartIfPlaying(){ if(playing){const i=curIdx;stop();start(i)} }
+function jumpTo(i){ if(playing){stop();start(i)} else {setCur(i,0);$('status').textContent=`Start at bar ${i+1}`} }
+function markLoop(){const[a,b]=loopRange();measures.forEach((m,i)=>m.el.classList.toggle('inloop',$('loop').checked&&i>=a&&i<=b))}
+
+/* ---------- controls ---------- */
+$('play').onclick=()=>playing?stop():start();
+document.addEventListener('keydown',e=>{if(e.code==='Space'&&!/INPUT|TEXTAREA|BUTTON/.test(e.target.tagName)){e.preventDefault();playing?stop():start()}});
+$('speed').oninput=()=>{$('speedVal').textContent=$('speed').value+'%'};
+$('speed').onchange=restartIfPlaying;
+$('bpm').onchange=()=>{save();restartIfPlaying()};
+$('beatsPer').onchange=()=>{buildDots();save();restartIfPlaying()};
+['loop','loopA','loopB'].forEach(id=>$(id).onchange=()=>{markLoop();restartIfPlaying()});
+let taps=[];
+$('tap').onclick=()=>{
+  const t=performance.now(); taps=taps.filter(x=>t-x<3000); taps.push(t);
+  if(taps.length>=2){const iv=(taps[taps.length-1]-taps[0])/(taps.length-1);$('bpm').value=Math.round(60000/iv);save()}
+};
+function save(){store.set('btt-bpm',$('bpm').value);store.set('btt-beats',$('beatsPer').value);store.set('btt-grid',$('grid').value);store.set('btt-sync',$('sync').value)}
+$('grid').onchange=()=>{save();restartIfPlaying()};
+$('sync').onchange=save;
+// Changing the tone plays a B so you can hear it right away.
+async function audition(){
+  store.set('btt-tone',$('tone').value); store.set('btt-oct',$('octUp').checked?'1':'');
+  await ensureCtx();
+  if(!playing) pluck(ctx.currentTime+.03,35,1,'bass');
+}
+$('tone').onchange=audition; $('octUp').onchange=audition;
+$('gtrTone').onchange=async()=>{
+  store.set('btt-gtone',$('gtrTone').value);
+  await ensureCtx();
+  if(!playing) [47,54,59,63].forEach((m,i)=>pluck(ctx.currentTime+.03+i*.05,m,1.4,'guitar')); // B major strum
+};
+$('inst').onchange=()=>{store.set('btt-inst',$('inst').value);stop();render(current)};
+
+// Upload: plain-text tabs only. Guitar Pro / PDF files are binary and can't be read as tab text.
+$('uploadBtn').onclick=()=>$('file').click();
+$('file').onchange=()=>{
+  const f=$('file').files[0]; if(!f)return;
+  if(/\.(gp\d?|gpx|pdf|mid|midi)$/i.test(f.name)){$('fileMsg').textContent=`${f.name} isn't a text tab. Export or copy it as plain text first.`;return}
+  const r=new FileReader();
+  r.onload=()=>{
+    $('src').value=r.result;
+    $('fileMsg').textContent=`Loaded ${f.name}`;
+    $('apply').click();
+    if(!measures.length){$('editor').open=true;$('fileMsg').textContent=`No tab lines found in ${f.name}.`}
+  };
+  r.onerror=()=>{$('fileMsg').textContent=`Couldn't read ${f.name}. Try pasting the tab instead.`};
+  r.readAsText(f); $('file').value='';
+};
+$('apply').onclick=()=>{stop();const t=$('src').value;store.set('btt-tab',t);render(t);$('tabNote').hidden=(t===EXAMPLE);$('editor').open=false};
+$('reset').onclick=()=>{$('src').value=EXAMPLE;$('apply').click()};
+
+const savedTab=store.get('btt-tab');
+$('bpm').value=store.get('btt-bpm')||80; $('beatsPer').value=store.get('btt-beats')||4;
+$('grid').value=store.get('btt-grid')||'4'; $('sync').value=store.get('btt-sync')||0;
+$('tone').value=store.get('btt-tone')||'finger'; $('octUp').checked=store.get('btt-oct')==='1';
+$('gtrTone').value=store.get('btt-gtone')||'clean'; $('inst').value=store.get('btt-inst')||'auto';
+$('src').value=savedTab||EXAMPLE; $('tabNote').hidden=!!savedTab&&savedTab!==EXAMPLE;
+buildDots(); render($('src').value);
+</script>
